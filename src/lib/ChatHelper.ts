@@ -14,9 +14,8 @@ export const initChatModel = async () => {
       { 
         revision: 'main',
         progress_callback: (progress) => {
-          console.log(`Loading model: ${Math.round(progress.progress * 100)}%`);
-        },
-        max_new_tokens: 128
+          console.log(`Loading model: ${Math.round(progress.percentage * 100)}%`);
+        }
       }
     );
     
