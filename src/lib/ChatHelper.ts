@@ -40,9 +40,45 @@ export const generateResponse = async (
       repetition_penalty: 1.2
     });
     
-    return result[0].generated_text.replace(prompt, '').trim();
+    // Extract the assistant's response from the full generated text
+    const response = result[0].generated_text.replace(prompt, '').trim();
+    
+    // Format response as a project assistant
+    const formattedResponse = formatAsProjectAssistant(response);
+    
+    return formattedResponse;
   } catch (error) {
     console.error('Error generating response:', error);
-    return 'Sorry, I encountered an error generating a response.';
+    return '抱歉，我在生成回應時遇到了錯誤。';
   }
+};
+
+// Format the response to make it sound more like a project management assistant
+const formatAsProjectAssistant = (response: string): string => {
+  // If response is empty or very short, provide a fallback
+  if (!response || response.length < 5) {
+    return '我能幫您管理專案，需要我做什麼嗎？';
+  }
+  
+  // Add project management context if missing
+  if (!response.includes('專案') && !response.includes('project') && 
+      !response.includes('任務') && !response.includes('task')) {
+    return `作為您的專案管理助手，${response}`;
+  }
+  
+  return response;
+};
+
+// Create project-focused prompts
+export const createProjectPrompt = (userMessage: string, messages: any[]): string => {
+  // Create a system instruction
+  const systemInstruction = `你是一個專業的專案管理智能助手，幫助用戶組織和跟踪他們的專案和任務。提供簡潔、有用的建議。`;
+  
+  // Build conversation history
+  const conversationHistory = messages
+    .map(msg => `${msg.role === 'user' ? '用戶' : '助手'}: ${msg.content}`)
+    .join('\n');
+  
+  // Complete prompt with system instruction and user's new message
+  return `${systemInstruction}\n\n${conversationHistory}\n用戶: ${userMessage}\n助手:`;
 };
