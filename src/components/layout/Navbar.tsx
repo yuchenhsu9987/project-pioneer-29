@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Home, Folder } from 'lucide-react';
+import { PlusCircle, Home, MessageSquare } from 'lucide-react';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -40,6 +40,17 @@ const Navbar = () => {
             >
               <Home className="w-4 h-4" />
               <span className="hidden sm:inline">Dashboard</span>
+            </Button>
+          </Link>
+          
+          <Link to="/chat">
+            <Button 
+              variant={location.pathname === '/chat' ? 'default' : 'ghost'} 
+              size="sm" 
+              className="gap-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="hidden sm:inline">Chat</span>
             </Button>
           </Link>
           
