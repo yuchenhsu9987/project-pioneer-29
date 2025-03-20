@@ -14,7 +14,8 @@ export const initChatModel = async () => {
       { 
         revision: 'main',
         progress_callback: (progress) => {
-          console.log(`Loading model: ${Math.round(progress.percentage * 100)}%`);
+          // Log progress without accessing the percentage property
+          console.log(`Loading model: ${progress ? 'in progress' : 'complete'}`);
         }
       }
     );
