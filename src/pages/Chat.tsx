@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import PageTransition from '@/components/layout/PageTransition';
@@ -11,46 +10,47 @@ import { initChatModel, generateResponse, createProjectPrompt } from '@/lib/Chat
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 
+type ChatModel = {
+  fallback: boolean;
+  __call__: (prompt: string, options?: any) => Promise<{ generated_text: string }[]>;
+};
+
 const Chat = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
-  const [model, setModel] = useState<any>(null);
+  const [model, setModel] = useState<ChatModel | null>(null);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [modelName, setModelName] = useState('google/gemma-3-1b-it');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize the model on component mount
   useEffect(() => {
     const loadModel = async () => {
       try {
         setInitializing(true);
         
-        // Start progress animation
         let progress = 0;
         const progressInterval = setInterval(() => {
           progress += 1;
-          setLoadingProgress(Math.min(progress, 95)); // Cap at 95% until actually complete
+          setLoadingProgress(Math.min(progress, 95));
         }, 300);
         
-        // Set a timeout for model loading
         timeoutRef.current = setTimeout(() => {
           setLoadingTimeout(true);
-        }, 15000); // 15 seconds timeout
+        }, 15000);
         
         const chatModel = await initChatModel();
         
-        // Clear intervals and timeouts
         clearInterval(progressInterval);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         
         setLoadingProgress(100);
         setModel(chatModel);
         
-        // Check if it's a fallback model
         if (chatModel.fallback) {
           toast({
             title: '使用基本模式',
@@ -60,11 +60,10 @@ const Chat = () => {
         } else {
           toast({
             title: '專案管理助手已準備就緒',
-            description: 'AI模型已成功加載。',
+            description: `已成功加載 ${modelName} 模型。`,
           });
         }
         
-        // Add welcome message
         setMessages([
           { 
             role: 'assistant', 
@@ -85,13 +84,11 @@ const Chat = () => {
 
     loadModel();
     
-    // Cleanup function
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [toast]);
+  }, [toast, modelName]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -105,13 +102,8 @@ const Chat = () => {
     setLoading(true);
 
     try {
-      // Create a project-focused prompt
       const prompt = createProjectPrompt(userMessage.content, messages);
-      
-      // Generate AI response
       const response = await generateResponse(model, prompt);
-      
-      // Add AI response to messages
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {
       console.error('Error generating response:', error);
@@ -140,12 +132,13 @@ const Chat = () => {
             <div className="flex items-center gap-3 mb-8">
               <BrainCircuit className="h-8 w-8 text-primary" />
               <h1 className="text-3xl font-bold">專案管理智能助手</h1>
+              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">{modelName}</span>
             </div>
             
             {initializing ? (
               <div className="flex flex-col items-center justify-center py-12 bg-card rounded-lg border shadow-sm">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground mb-6">正在加載AI模型...</p>
+                <p className="text-muted-foreground mb-6">正在加載AI模型 ({modelName})...</p>
                 
                 <div className="w-full max-w-md px-8 mb-4">
                   <Progress value={loadingProgress} className="h-2" />
@@ -240,7 +233,7 @@ const Chat = () => {
                   </div>
                   <p className="text-xs text-center text-muted-foreground mt-2 flex items-center justify-center gap-1">
                     <Sparkles className="h-3 w-3" />
-                    AI助手直接在您的瀏覽器中運行，對話不會上傳至伺服器
+                    AI助手使用 {modelName} 模型，直接在您的瀏覽器中運行
                   </p>
                 </div>
               </>

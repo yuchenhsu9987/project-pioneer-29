@@ -4,15 +4,21 @@ import { pipeline, env } from '@huggingface/transformers';
 // Use WebGPU acceleration when available
 env.backends.onnx.wasm.numThreads = 1;
 
+// Model types
+type ChatModel = {
+  fallback: boolean;
+  __call__: (prompt: string, options?: any) => Promise<{ generated_text: string }[]>;
+} | any; // Include the pipeline type
+
 // Initialize the text generation model
-export const initChatModel = async () => {
+export const initChatModel = async (): Promise<ChatModel> => {
   try {
     console.log('Starting to load the model...');
     
-    // Try to load a smaller model suitable for browser environments
+    // Try to load the Gemma model (smaller instruction-tuned model)
     const generator = await pipeline(
       'text-generation',
-      'Xenova/distilgpt2',  // Using a smaller model that's better supported
+      'google/gemma-3-1b-it',  // Using Gemma 3 1B instruction-tuned model
       { 
         revision: 'main',
         progress_callback: (progress) => {
@@ -23,7 +29,12 @@ export const initChatModel = async () => {
     );
     
     console.log('Model loaded successfully');
-    return generator;
+    return {
+      fallback: false,
+      __call__: async (prompt: string, options?: any) => {
+        return generator(prompt, options);
+      }
+    };
   } catch (error) {
     console.error('Error initializing chat model:', error);
     
@@ -42,18 +53,13 @@ export const initChatModel = async () => {
 
 // Generate a response based on conversation history
 export const generateResponse = async (
-  model: any, 
+  model: ChatModel, 
   prompt: string
 ) => {
   try {
-    // Check if we're using the fallback model
-    if (model.fallback) {
-      const result = await model.__call__(prompt);
-      return result[0].generated_text.replace(prompt, '').trim();
-    }
-    
-    const result = await model(prompt, {
-      max_new_tokens: 128,
+    // Generate response using the model
+    const result = await model.__call__(prompt, {
+      max_new_tokens: 256,
       temperature: 0.7,
       top_p: 0.95,
       repetition_penalty: 1.2
@@ -90,7 +96,7 @@ const formatAsProjectAssistant = (response: string): string => {
 
 // Create project-focused prompts
 export const createProjectPrompt = (userMessage: string, messages: any[]): string => {
-  // Create a system instruction
+  // Create a system instruction for project management
   const systemInstruction = `你是一個專業的專案管理智能助手，幫助用戶組織和跟踪他們的專案和任務。提供簡潔、有用的建議。`;
   
   // Build conversation history
