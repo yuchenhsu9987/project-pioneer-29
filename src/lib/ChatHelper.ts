@@ -10,9 +10,12 @@ export const initChatModel = async () => {
     // Load a smaller model suitable for browser environments
     const generator = await pipeline(
       'text-generation',
-      'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+      'Xenova/distilgpt2',  // Using a smaller model that's better supported
       { 
-        quantized: true,
+        revision: 'main',
+        progress_callback: (progress) => {
+          console.log(`Loading model: ${Math.round(progress.progress * 100)}%`);
+        },
         max_new_tokens: 128
       }
     );
