@@ -5,9 +5,11 @@ import PageTransition from '@/components/layout/PageTransition';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { Loader2, Send, Bot, BrainCircuit, Sparkles } from 'lucide-react';
+import { Loader2, Send, Bot, BrainCircuit, Sparkles, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { initChatModel, generateResponse, createProjectPrompt } from '@/lib/ChatHelper';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Chat = () => {
   const [input, setInput] = useState('');
@@ -15,20 +17,52 @@ const Chat = () => {
   const [model, setModel] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize the model on component mount
   useEffect(() => {
     const loadModel = async () => {
       try {
         setInitializing(true);
+        
+        // Start progress animation
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+          progress += 1;
+          setLoadingProgress(Math.min(progress, 95)); // Cap at 95% until actually complete
+        }, 300);
+        
+        // Set a timeout for model loading
+        timeoutRef.current = setTimeout(() => {
+          setLoadingTimeout(true);
+        }, 15000); // 15 seconds timeout
+        
         const chatModel = await initChatModel();
+        
+        // Clear intervals and timeouts
+        clearInterval(progressInterval);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        
+        setLoadingProgress(100);
         setModel(chatModel);
-        toast({
-          title: '專案管理助手已準備就緒',
-          description: 'AI模型已成功加載。',
-        });
+        
+        // Check if it's a fallback model
+        if (chatModel.fallback) {
+          toast({
+            title: '使用基本模式',
+            description: '無法加載完整AI模型，將使用基本回應。',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: '專案管理助手已準備就緒',
+            description: 'AI模型已成功加載。',
+          });
+        }
         
         // Add welcome message
         setMessages([
@@ -50,6 +84,11 @@ const Chat = () => {
     };
 
     loadModel();
+    
+    // Cleanup function
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, [toast]);
 
   // Scroll to bottom when messages change
@@ -86,6 +125,12 @@ const Chat = () => {
     }
   };
 
+  const handleRetry = () => {
+    setLoadingTimeout(false);
+    setLoadingProgress(0);
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -98,10 +143,40 @@ const Chat = () => {
             </div>
             
             {initializing ? (
-              <div className="flex flex-col items-center justify-center py-12">
+              <div className="flex flex-col items-center justify-center py-12 bg-card rounded-lg border shadow-sm">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground">正在加載AI模型...</p>
-                <p className="text-xs text-muted-foreground mt-2">首次加載可能需要一點時間</p>
+                <p className="text-muted-foreground mb-6">正在加載AI模型...</p>
+                
+                <div className="w-full max-w-md px-8 mb-4">
+                  <Progress value={loadingProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    {loadingProgress < 100 ? `加載中 ${loadingProgress}%` : '加載完成'}
+                  </p>
+                </div>
+                
+                {loadingTimeout && (
+                  <div className="mt-6 text-center px-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-500 mr-2" />
+                      <p className="text-amber-500 font-medium">加載時間較長</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      模型加載需要較長時間。這可能是因為網絡連接問題或瀏覽器限制。
+                    </p>
+                    <Button onClick={handleRetry} variant="outline" size="sm">
+                      重試加載
+                    </Button>
+                  </div>
+                )}
+                
+                <div className="mt-6 space-y-4 w-full max-w-md px-8">
+                  <p className="text-xs text-center text-muted-foreground">模型加載中，請稍候...</p>
+                  <Skeleton className="h-16 w-full" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-10 w-10" />
+                    <Skeleton className="h-10 flex-1" />
+                  </div>
+                </div>
               </div>
             ) : (
               <>

@@ -7,23 +7,36 @@ env.backends.onnx.wasm.numThreads = 1;
 // Initialize the text generation model
 export const initChatModel = async () => {
   try {
-    // Load a smaller model suitable for browser environments
+    console.log('Starting to load the model...');
+    
+    // Try to load a smaller model suitable for browser environments
     const generator = await pipeline(
       'text-generation',
       'Xenova/distilgpt2',  // Using a smaller model that's better supported
       { 
         revision: 'main',
         progress_callback: (progress) => {
-          // Log progress without accessing the percentage property
+          // Log progress without accessing specific properties
           console.log(`Loading model: ${progress ? 'in progress' : 'complete'}`);
         }
       }
     );
     
+    console.log('Model loaded successfully');
     return generator;
   } catch (error) {
     console.error('Error initializing chat model:', error);
-    throw error;
+    
+    // In case of error, provide a simple fallback response generator
+    console.log('Using fallback response generator');
+    return {
+      fallback: true,
+      __call__: async (prompt: string) => {
+        return [{
+          generated_text: prompt + "\n我是您的專案管理助手。由於目前無法加載完整的AI模型，我只能提供基本回應。請稍後再試或檢查您的網絡連接。"
+        }]
+      }
+    };
   }
 };
 
@@ -33,6 +46,12 @@ export const generateResponse = async (
   prompt: string
 ) => {
   try {
+    // Check if we're using the fallback model
+    if (model.fallback) {
+      const result = await model.__call__(prompt);
+      return result[0].generated_text.replace(prompt, '').trim();
+    }
+    
     const result = await model(prompt, {
       max_new_tokens: 128,
       temperature: 0.7,
@@ -49,7 +68,7 @@ export const generateResponse = async (
     return formattedResponse;
   } catch (error) {
     console.error('Error generating response:', error);
-    return '抱歉，我在生成回應時遇到了錯誤。';
+    return '抱歉，我在生成回應時遇到了錯誤。請稍後再試。';
   }
 };
 
