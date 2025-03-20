@@ -1,14 +1,15 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import PageTransition from '@/components/layout/PageTransition';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
-import { Loader2, Send, Bot, BrainCircuit, Sparkles, AlertTriangle } from 'lucide-react';
+import { BrainCircuit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { initChatModel, generateResponse, createProjectPrompt } from '@/lib/ChatHelper';
-import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
+
+// Import the new components
+import ChatContainer from '@/components/chat/ChatContainer';
+import ChatInput from '@/components/chat/ChatInput';
+import LoadingScreen from '@/components/chat/LoadingScreen';
 
 type ChatModel = {
   fallback: boolean;
@@ -24,7 +25,6 @@ const Chat = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [modelName, setModelName] = useState('google/gemma-3-1b-it');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -89,10 +89,6 @@ const Chat = () => {
     };
   }, [toast, modelName]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   const handleSendMessage = async () => {
     if (!input.trim() || !model || loading) return;
     
@@ -136,106 +132,22 @@ const Chat = () => {
             </div>
             
             {initializing ? (
-              <div className="flex flex-col items-center justify-center py-12 bg-card rounded-lg border shadow-sm">
-                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground mb-6">正在加載AI模型 ({modelName})...</p>
-                
-                <div className="w-full max-w-md px-8 mb-4">
-                  <Progress value={loadingProgress} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    {loadingProgress < 100 ? `加載中 ${loadingProgress}%` : '加載完成'}
-                  </p>
-                </div>
-                
-                {loadingTimeout && (
-                  <div className="mt-6 text-center px-4">
-                    <div className="flex items-center justify-center mb-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-500 mr-2" />
-                      <p className="text-amber-500 font-medium">加載時間較長</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      模型加載需要較長時間。這可能是因為網絡連接問題或瀏覽器限制。
-                    </p>
-                    <Button onClick={handleRetry} variant="outline" size="sm">
-                      重試加載
-                    </Button>
-                  </div>
-                )}
-                
-                <div className="mt-6 space-y-4 w-full max-w-md px-8">
-                  <p className="text-xs text-center text-muted-foreground">模型加載中，請稍候...</p>
-                  <Skeleton className="h-16 w-full" />
-                  <div className="flex gap-2">
-                    <Skeleton className="h-10 w-10" />
-                    <Skeleton className="h-10 flex-1" />
-                  </div>
-                </div>
-              </div>
+              <LoadingScreen 
+                loadingProgress={loadingProgress}
+                loadingTimeout={loadingTimeout}
+                handleRetry={handleRetry}
+                modelName={modelName}
+              />
             ) : (
               <>
-                <div className="bg-card rounded-lg p-4 h-[500px] mb-4 overflow-y-auto border shadow-sm">
-                  {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`mb-4 ${
-                        message.role === 'user' ? 'ml-auto' : 'mr-auto'
-                      }`}
-                    >
-                      <Card
-                        className={`p-3 max-w-[80%] ${
-                          message.role === 'user'
-                            ? 'ml-auto bg-primary text-primary-foreground'
-                            : 'mr-auto border-primary/20 flex items-start gap-2'
-                        }`}
-                      >
-                        {message.role === 'assistant' && (
-                          <Bot className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                        )}
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                      </Card>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </div>
-                
-                <div className="flex flex-col gap-2">
-                  <Textarea
-                    className="flex-1 min-h-24 resize-none"
-                    placeholder="輸入您的問題或請求..."
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    disabled={loading}
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      className="w-full gap-2"
-                      onClick={handleSendMessage}
-                      disabled={loading || !input.trim()}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          處理中...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="h-4 w-4" />
-                          發送訊息
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-center text-muted-foreground mt-2 flex items-center justify-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    AI助手使用 {modelName} 模型，直接在您的瀏覽器中運行
-                  </p>
-                </div>
+                <ChatContainer messages={messages} />
+                <ChatInput 
+                  input={input}
+                  setInput={setInput}
+                  handleSendMessage={handleSendMessage}
+                  loading={loading}
+                  modelName={modelName}
+                />
               </>
             )}
           </div>
